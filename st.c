@@ -117,7 +117,6 @@ typedef struct {
 typedef struct {
 	int row;      /* nb row */
 	int col;      /* nb col */
-	int maxcol;
 	Line *line;   /* screen */
 	Line *alt;    /* alternate screen */
 	Line hist[HISTSIZE]; /* history buffer */
@@ -1144,13 +1143,13 @@ tscrolldown(int orig, int n, int copyhist)
 	Line temp;
 
 	LIMIT(n, 0, term.bot-orig+1);
-
 	if (copyhist) {
 		term.histi = (term.histi - 1 + HISTSIZE) % HISTSIZE;
 		temp = term.hist[term.histi];
 		term.hist[term.histi] = term.line[term.bot];
 		term.line[term.bot] = temp;
 	}
+
 
 	tsetdirt(orig, term.bot-n);
 	tclearregion(0, term.bot-n+1, term.col-1, term.bot);
@@ -1333,8 +1332,8 @@ tclearregion(int x1, int y1, int x2, int y2)
 	if (y1 > y2)
 		temp = y1, y1 = y2, y2 = temp;
 
-	LIMIT(x1, 0, term.maxcol-1);
-	LIMIT(x2, 0, term.maxcol-1);
+	LIMIT(x1, 0, term.col-1);
+	LIMIT(x2, 0, term.col-1);
 	LIMIT(y1, 0, term.row-1);
 	LIMIT(y2, 0, term.row-1);
 
@@ -2656,17 +2655,10 @@ void
 tresize(int col, int row)
 {
 	int i, j;
-	int tmp;
-	int minrow, mincol;
 	int *bp;
+	int minrow = MIN(row, term.row);
+	int mincol = MIN(col, term.col);
 	TCursor c;
-
-	tmp = col;
-	if (!term.maxcol)
-		term.maxcol = term.col;
-	col = MAX(col, term.maxcol);
-	minrow = MIN(row, term.row);
-	mincol = MIN(col, term.maxcol);
 
 	if (col < 1 || row < 1) {
 		fprintf(stderr,
@@ -2718,18 +2710,17 @@ tresize(int col, int row)
 		term.line[i] = xmalloc(col * sizeof(Glyph));
 		term.alt[i] = xmalloc(col * sizeof(Glyph));
 	}
-	if (col > term.maxcol) {
-		bp = term.tabs + term.maxcol;
+	if (col > term.col) {
+		bp = term.tabs + term.col;
 
-		memset(bp, 0, sizeof(*term.tabs) * (col - term.maxcol));
+		memset(bp, 0, sizeof(*term.tabs) * (col - term.col));
 		while (--bp > term.tabs && !*bp)
 			/* nothing */ ;
 		for (bp += tabspaces; bp < term.tabs + col; bp += tabspaces)
 			*bp = 1;
 	}
 	/* update terminal size */
-	term.col = tmp;
-	term.maxcol = col;
+	term.col = col;
 	term.row = row;
 	/* reset scrolling region */
 	tsetscroll(0, row-1);
